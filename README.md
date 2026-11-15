@@ -1,5 +1,7 @@
 # tapeleaf
 
+[Live demo](https://aditya2375.github.io/tapeleaf/)
+
 A Java-first mini market terminal with a deterministic, invented six-instrument session. Step the tape manually, select a symbol, sort a watchlist and compare quotes, trades, OHLCV bars and cumulative trade VWAP. Nothing is live, delayed, tradable or connected to an exchange.
 
 ## What it does
