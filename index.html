@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>tapeleaf - synthetic market replay</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="brand" href="#">tapeleaf <small>/ 10</small></a
+        ><span class="badge">SYNTHETIC · MANUAL REPLAY</span
+        ><a href="#method">How it works ↘</a>
+      </header>
+      <section class="intro">
+        <p class="eyebrow">A SMALL TERMINAL. AN INVENTED SESSION.</p>
+        <h1>Read the tape.<br />One tick at a time.</h1>
+        <p>
+          Six fictional instruments. A visible past, a hidden future. Inspect
+          the quote, the trades and the bars without pretending any of it is
+          live.
+        </p>
+      </section>
+      <form id="generator">
+        <label
+          >Session seed
+          <input
+            id="seed"
+            type="number"
+            min="1"
+            max="4294967295"
+            step="1"
+            value="2026"
+            required /></label
+        ><label
+          >Price scenario
+          <select id="scenario">
+            <option value="mixed">Mixed steps</option>
+            <option value="trend">Alternating drifts</option>
+            <option value="quiet">Flat prices</option>
+          </select></label
+        ><button class="primary" type="submit">Generate session ↗</button>
+        <p class="hint">
+          Seed: whole number 1-4,294,967,295. Generating resets the cursor to
+          tick 30.
+        </p>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section class="replay" aria-label="Replay controls">
+        <div class="replay-head">
+          <h2>Session cursor</h2>
+          <p id="progress"></p>
+        </div>
+        <div class="transport">
+          <button id="first" type="button">First</button
+          ><button id="prev" type="button">−1</button
+          ><input
+            id="cursor"
+            type="range"
+            min="1"
+            max="120"
+            value="30"
+            aria-label="Visible tick"
+          /><button id="next" type="button">+1</button
+          ><button id="jump" type="button">+10</button
+          ><button id="last" type="button">Last</button>
+        </div>
+        <p class="hint">
+          No clock or autoplay. All rows and chart marks use ticks 1 through the
+          cursor. “Last” reveals the full invented session.
+        </p>
+      </section>
+      <div class="workbench">
+        <section class="watch">
+          <div class="section-head">
+            <h2>01 / Watchlist</h2>
+            <label
+              >Sort
+              <select id="sort">
+                <option value="symbol">Symbol</option>
+                <option value="change">Change ↓</option>
+                <option value="spread">Spread ↓</option>
+              </select></label
+            >
+          </div>
+          <p id="breadth" class="hint"></p>
+          <div
+            class="scroll"
+            role="region"
+            aria-label="Watchlist, scroll sideways if needed"
+            tabindex="0"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>Instrument</th>
+                  <th>Last / u</th>
+                  <th>Change / %</th>
+                </tr>
+              </thead>
+              <tbody id="watchlist"></tbody>
+            </table>
+          </div>
+          <p class="hint">
+            Select a symbol to inspect it. Change compares last trade with an
+            invented prior close, not with tick 1.
+          </p>
+          <section class="tape">
+            <h2>02 / Recent trades</h2>
+            <p id="tape-label" class="hint"></p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tick</th>
+                  <th>Price / u</th>
+                  <th>Size</th>
+                </tr>
+              </thead>
+              <tbody id="trades"></tbody>
+            </table>
+            <p class="hint">
+              Newest first, last 10 visible trades. Quotes are constructed
+              around each trade; this is not an execution model.
+            </p>
+          </section>
+        </section>
+        <section class="detail">
+          <div class="section-head">
+            <h2 id="symbol-title"></h2>
+            <label
+              >Bar length
+              <select id="width">
+                <option value="5">5 ticks</option>
+                <option value="10" selected>10 ticks</option>
+                <option value="20">20 ticks</option>
+              </select></label
+            >
+          </div>
+          <p id="instrument-note" class="hint"></p>
+          <dl class="quote">
+            <div>
+              <dt>Last trade / u</dt>
+              <dd id="q-last"></dd>
+            </div>
+            <div>
+              <dt>Change / %</dt>
+              <dd id="q-change"></dd>
+            </div>
+            <div>
+              <dt>Bid / u</dt>
+              <dd id="q-bid"></dd>
+            </div>
+            <div>
+              <dt>Ask / u</dt>
+              <dd id="q-ask"></dd>
+            </div>
+          </dl>
+          <div class="subquote">
+            <p>Spread <strong id="q-spread"></strong></p>
+            <p>Visible VWAP <strong id="q-vwap"></strong></p>
+            <p>Volume <strong id="q-volume"></strong></p>
+          </div>
+          <figure>
+            <figcaption id="chart-caption"></figcaption>
+            <svg
+              id="chart"
+              role="img"
+              aria-label="Visible OHLC bars and cumulative tick VWAP"
+            ></svg>
+            <div class="legend">
+              <span class="up">□ Close ≥ open</span
+              ><span class="down">□ Close &lt; open</span
+              ><span class="cyan">─ Tick VWAP</span>
+            </div>
+          </figure>
+          <p id="bar-status" class="notice"></p>
+          <dl class="range">
+            <div>
+              <dt>Visible low / u</dt>
+              <dd id="q-low"></dd>
+            </div>
+            <div>
+              <dt>Visible high / u</dt>
+              <dd id="q-high"></dd>
+            </div>
+            <div>
+              <dt>Invented prior close / u</dt>
+              <dd id="q-prior"></dd>
+            </div>
+          </dl>
+          <details>
+            <summary>Inspect every visible OHLCV bar</summary>
+            <p class="hint">
+              u = fictitious price unit. Size and volume are fictitious shares.
+              Open/close are the first/last observed trade in a bar. Scroll this
+              ledger sideways on narrow screens.
+            </p>
+            <div
+              class="scroll ledger"
+              tabindex="0"
+              role="region"
+              aria-label="OHLCV bar ledger, scroll sideways"
+            >
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ticks</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Close</th>
+                    <th>Volume</th>
+                    <th>State</th>
+                  </tr>
+                </thead>
+                <tbody id="bars"></tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+      </div>
+      <section id="method">
+        <p class="eyebrow">WHAT THIS TERMINAL KNOWS</p>
+        <h2>Trade, quote, aggregate.<br />Keep them separate.</h2>
+        <div class="method-grid">
+          <div>
+            <h3>Invented inputs</h3>
+            <p>
+              ALFA, BRIO, COVE, DUNE, ELIO and FENN are fictional labels, not
+              real listings. There is no exchange, currency, timezone or clock.
+              Tick 1 is the first simulated event, not a minute. Every event
+              creates one trade and one quote for each symbol.
+            </p>
+            <p>
+              Integer price steps, sizes and symmetric quotes come from
+              xorshift32. Mixed steps lie from −20 to +20 cents. Alternating
+              drifts add +9 cents for ALFA/COVE/ELIO, −9 for the others. All
+              prices are floored at 1 fictitious unit. Flat prices keep all
+              trade prices at their prior closes, while size and spread still
+              change.
+            </p>
+          </div>
+          <div>
+            <h3>Exact tape accounting</h3>
+            <p>
+              Bid = trade − h; ask = trade + h, with h from 1 to 8 cents. Spread
+              = ask − bid. Spread bps = 10,000 × spread / quote midpoint.
+              Constructing quotes this way is artificial; it does not show fill
+              probability, depth or liquidity.
+            </p>
+            <p>
+              Visible VWAP = Σ(trade price × size) / Σsize, from tick 1 through
+              the cursor. It uses every invented trade, not an OHLC
+              typical-price approximation. OHLCV groups consecutive events into
+              5, 10 or 20 tick bars. The current bar is partial until its last
+              event is visible.
+            </p>
+          </div>
+          <div>
+            <h3>Boundaries</h3>
+            <p>
+              No live or delayed prices, real market data, predictions, orders,
+              broker keys, accounts, uploads, saved settings, analytics or
+              external runtime requests. No profits, returns strategy,
+              recommendations or evidence of market realism.
+            </p>
+            <p>
+              Only the visible prefix enters displayed metrics, sorting,
+              breadth, bars and recent trades. The whole deterministic tape
+              exists in memory; this is a learning replay, not a secure
+              future-data barrier or a backtest. Refresh resets the session.
+            </p>
+          </div>
+        </div>
+        <p class="sources">
+          Definitions:
+          <a
+            href="https://www.investor.gov/introduction-investing/investing-basics/glossary/ask-price"
+            >Investor.gov bid/ask</a
+          >
+          ·
+          <a
+            href="https://www.investor.gov/introduction-investing/investing-basics/glossary/stock-quotes"
+            >stock quotes</a
+          >
+          ·
+          <a
+            href="https://help.stockcharts.com/data-and-ticker-symbols/data-availability/data-bar-periods"
+            >StockCharts bars</a
+          >
+          ·
+          <a href="https://www.investopedia.com/terms/v/vwap.asp">trade VWAP</a>
+          ·
+          <a
+            href="https://awgmain.morningstar.com/webhelp/glossary_definitions/accounts/Price_Change.htm"
+            >Morningstar change %</a
+          >
+        </p>
+      </section>
+      <footer>
+        <span>tapeleaf / Java-first market terminal study</span
+        ><span>Original code · MIT OR Apache-2.0</span>
+      </footer>
+    </main>
+  </body>
+</html>
